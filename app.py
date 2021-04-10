@@ -37,7 +37,7 @@ if __name__ == '__main__':
     train["rsi"] = RSI(train.close.to_numpy(), timeperiod=5)
     train["slowk"], train["slowd"] = STOCH(train.high.to_numpy(), train.low.to_numpy(), train.close.to_numpy())
     train["ema"] = EMA(train.close.to_numpy(), timeperiod=5)
-    train["willr"] = WILLR(train.high.to_numpy(), train.low.to_numpy(), train.close.to_numpy(), timeperiod=9)
+    train["willr"] = WILLR(train.high.to_numpy(), train.low.to_numpy(), train.close.to_numpy(), timeperiod=5)
 
     train_data = train.dropna()
     train_data = train_data.reset_index(drop=True)
@@ -64,16 +64,17 @@ if __name__ == '__main__':
         else:
             y.append(1)
     y = np.array(y, dtype=np.int)
-
+    test_size = len(test_df)
     X = list()
-    for i in range(20, len(train_data)):
+    for i in range(20, len(train_data) + test_size - 20):
         X.append(train_data.loc[i-20:i-1, :].values)
     X = np.array(X)
-    y = y[39:]
-    test = X[-20:]
-    new_X = X[:-19]
-    new_X = new_X.reshape((len(y), -1))
-
+    
+    y = y[40:]
+   
+    test = X[-test_size:]
+    new_X = X[:-test_size]
+    new_X = new_X.reshape((new_X.shape[0], -1))
     X_train, X_val, y_train, y_val = train_test_split(new_X, y, test_size=0.3, shuffle=False)
     # Use XGBClassifier and mclogloss to do multi-class classification
     xgb = XGBClassifier(learning_rate=0.1, 
@@ -88,11 +89,11 @@ if __name__ == '__main__':
                 verbose=True)
     
     # Predict the testing data
-    preds = model.predict(test.reshape(20, -1))
+    preds = model.predict(test.reshape(test_size, -1))
     ans = []
     unit = 0
     val = 0
-    #
+
     for i in range(1, len(preds)):
         # bullish
         if preds[i] == 2:
