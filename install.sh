@@ -5,7 +5,7 @@ cd ta-lib
 ./configure --prefix=/usr
 make
 make install
-python3 -m pip3 install Ta-Lib
+python3 -m pip install Ta-Lib
 git clone --recursive http://github.com/dmlc/xgboost
 cd xgboost
 make -j4
