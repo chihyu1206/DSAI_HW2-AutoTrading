@@ -9,16 +9,16 @@ NCKU DSAI homework 2
 5. chmod u+x install.sh (After that, we can execute the shell script file)
 6. python3 -m pip install -r requirements.txt (Python=3.6.9 Install the remaining module)
 7. sudo ./install.sh (Install the ta-lib and Xgboost which can't be installed directly by pip in Ubuntu)
-8. python3 app.py --training training_file --testing testing_file output output_file (Train an predict)
+8. python3 app.py --training training_file --testing testing_file output output_file (Train and predict)
 
 ## Description
 使用助教所提供IBM之前約1500天的股價數據，搭配XGBoost做multi-class分類，以預測未來20天的買賣點。
 
 ### Data Analysis
-由於IBM是大型藍籌股 覺得股價波動較小 難以直接單純使用提供的開高低收價來制定策略 因此引入常見的Python量化交易套件Ta-Lib 來擴增訓練資料
+由於IBM是大型藍籌股 直覺認為股價波動幅度較小 難以直接單純使用提供的開高低收價來制定策略 因此引入常見的Python量化交易套件Ta-Lib 來擴增訓練資料
 
 ### Feature Engineering
-因為作業說明有說之後會引入走勢相近的不同股票data來訓練，股價分布可能不同，而且Xgboost不像一般單純的決策樹只關心數據分布與機率，所以還是要做Normalization
+因為作業說明有說之後會引入走勢相近的不同股票data來訓練，股價分布可能不同，而且Xgboost不像一般單純的決策樹只關心數據分布與機率，所以應該要做Normalization
 ```
 # Do MinMax normalization
 maxValue = train_df.to_numpy().max()
