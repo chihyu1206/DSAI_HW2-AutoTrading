@@ -62,7 +62,8 @@ y = np.array(y, dtype=np.int)
 ```
 
 ## Training
-最後訓練的部分，我有另外使用GridSearchCV，在XGBoost裡三個影響模型較大的參數找最佳的組合
+最後訓練的部分，是以前20天的價格技術分析等數據 預測20天後當天的買賣策略(e.g., 輸入1st~20nd 輸出40th的買賣策略)
+有另外使用GridSearchCV函數，對XGBoost裡三個影響模型效果較大的參數找最佳的組合
 ```
 parameters = {
     'max_depth': list(range(1, 10)),
@@ -84,4 +85,33 @@ xgb = XGBClassifier(learning_rate=0.1,
                 objective='multi:softmax',
                 num_class=3,
                 n_estimators=30, max_depth=3, min_child_weight=10, use_label_encoder=False)
+```
+
+得到預測結果(看空or持平or看多)後 搭配庫存需介於-1~1之間的條件 輸出買賣回測到output.csv
+```
+for i in range(1, len(preds)):
+    # bullish
+    if preds[i] == 2:
+        if unit == 1:
+            val = 0
+        else:
+            val = 1
+            unit += 1
+    # Do nothing
+    elif preds[i] == 1:
+        val = 0
+    # bearish
+    else:
+        if unit == -1:
+            val = 0
+        else:
+            val = -1
+            unit -= 1
+        
+    ans.append(val)
+
+# Write the result into output
+with open(args.output, "w") as fp:
+    for i in range(len(ans)):
+        print(ans[i], file=fp)
 ```
