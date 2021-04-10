@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from talib import BBANDS, SAR, RSI, STOCH
+from talib import BBANDS, SAR, RSI, STOCH, EMA, WILLR
 from sklearn.model_selection import train_test_split, GridSearchCV
 from xgboost import XGBClassifier
 # You can write code above the if-main block.
@@ -21,64 +21,88 @@ if __name__ == '__main__':
                         help='output file name')
     args = parser.parse_args()
     
-    # Read the training and testing data
+    # Read the training data
     train_df = pd.read_csv(args.training, names=("open", "high", "low", "close"))
     test_df = pd.read_csv(args.testing, names=("open", "high", "low", "close"))
-
     # Do MinMax normalization
     maxValue = train_df.to_numpy().max()
     minValue = train_df.to_numpy().min()
     diff = maxValue - minValue
     train = train_df.transform(lambda x: (x - minValue) / diff)
-    test = test_df.transform(lambda x: (x - minValue) / diff)
+    # test = test_df.transform(lambda x: (x - minValue) / diff)
     
     # Use technical analysis to expand the data 
     train["upperband"], train["middleband"], train["lowerband"] = BBANDS(train.close.to_numpy())
     train["sar"] = SAR(train.high.to_numpy(), train.low.to_numpy())
     train["rsi"] = RSI(train.close.to_numpy(), timeperiod=5)
     train["slowk"], train["slowd"] = STOCH(train.high.to_numpy(), train.low.to_numpy(), train.close.to_numpy())
+    train["ema"] = EMA(train.close.to_numpy(), timeperiod=5)
+    train["willr"] = WILLR(train.high.to_numpy(), train.low.to_numpy(), train.close.to_numpy(), timeperiod=9)
+
     train_data = train.dropna()
+    train_data = train_data.reset_index(drop=True)
     
+    """
     test["upperband"], test["middleband"], test["lowerband"] = BBANDS(test.close.to_numpy())
     test["sar"] = SAR(test.high.to_numpy(), test.low.to_numpy())
     test["rsi"] = RSI(test.close.to_numpy(), timeperiod=5)
     test["slowk"], test["slowd"] = STOCH(test.high.to_numpy(), test.low.to_numpy(), test.close.to_numpy())
+    """
+    # 2->bullish, 0->bearish, 1->do nothing
+    y = list()
+    for i in range(len(train_data)):
+        isBull = (train_data["open"][i] > train_data["sar"][i], 
+                  train_data["open"][i] >= train_data["middleband"][i],
+                  train_data["rsi"][i] > 50,
+                  train_data["slowk"][i] >= train_data["slowd"][i],
+                  train_data["open"][i] >= train_data["ema"][i],
+                  train_data["willr"][i] > -50)
+        if np.count_nonzero(isBull) > 4:
+            y.append(2)
+        elif np.count_nonzero(isBull) < 2:
+            y.append(0)
+        else:
+            y.append(1)
+    y = np.array(y, dtype=np.int)
 
-    # 1/0 on behalf of the open price is higher or lower after 3 days
-    train_data["threeDays"] = np.where(train_data.open.shift(-3) > train_data.open, 1, 0)
-    
-    # We can't judge the correction of last three days when training 
-    train = train_data.drop(train_data.tail(3).index, inplace=False)
-    y = train.threeDays.to_numpy()
-    X = train.drop("threeDays", axis=1).to_numpy()
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.3, shuffle=False)
-    
-    # Use XGBClassifier and AUC to do binary classification
-    xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=5, min_child_weight=9, use_label_encoder=False)
+    X = list()
+    for i in range(20, len(train_data)):
+        X.append(train_data.loc[i-20:i-1, :].values)
+    X = np.array(X)
+    y = y[39:]
+    test = X[-20:]
+    new_X = X[:-19]
+    new_X = new_X.reshape((len(y), -1))
+
+    X_train, X_val, y_train, y_val = train_test_split(new_X, y, test_size=0.3, shuffle=False)
+    # Use XGBClassifier and mclogloss to do multi-class classification
+    xgb = XGBClassifier(learning_rate=0.1, 
+                    objective='multi:softmax',
+                    num_class=3,
+                    n_estimators=30, max_depth=3, min_child_weight=10, use_label_encoder=False)
+
     
     model = xgb.fit(X_train, y_train,
                 eval_set=[(X_val, y_val)],
-                eval_metric="auc",
-                verbose=False)
+                eval_metric="mlogloss",
+                verbose=True)
     
     # Predict the testing data
-    preds = model.predict(test.values)
+    preds = model.predict(test.reshape(20, -1))
     ans = []
     unit = 0
     val = 0
-    # The first 8 days doesn't have Stochastic Oscillator，KD
-    # So we can just predict the price based on our model
-    for i in range(1, 8):
-        _sum = sum(preds[i-1:i+1])
+    #
+    for i in range(1, len(preds)):
         # bullish
-        if _sum == 2:
+        if preds[i] == 2:
             if unit == 1:
                 val = 0
             else:
                 val = 1
                 unit += 1
         # Do nothing
-        elif _sum == 1:
+        elif preds[i] == 1:
             val = 0
         # bearish
         else:
@@ -88,32 +112,6 @@ if __name__ == '__main__':
                 val = -1
                 unit -= 1
         
-        ans.append(val)
-    # Draw technical signs into our prediction
-    for i in range(8, len(preds)):
-        isBull = (test["open"][i] > test["sar"][i], 
-                  test["open"][i] >= test["middleband"][i],
-                  test["rsi"][i] > 50,
-                  test["slowk"][i] >= test["slowd"][i])
-        # We are bullish that the stock price will be higher after 3 days
-        # and the Technical Signs at once back the prediction 
-        if preds[i] == 1 and np.sum(isBull != 0) >= 2:
-            if unit == 1:
-                val = 0
-            else:
-                val = 1
-                unit += 1
-        # We are bearish that the stock price will be higher after 3 days
-        # and the Technical Signs at once back the prediction 
-        elif preds[i] == 0 and np.sum(isBull != 0) <= 2:
-            if unit == -1:
-                val = 0
-            else:
-                val = -1
-                unit -= 1
-        # Do nothing
-        else:
-            val = 0
         ans.append(val)
 
     # Write the result into output
