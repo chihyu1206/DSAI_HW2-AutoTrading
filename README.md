@@ -2,23 +2,23 @@
 NCKU DSAI homework 2
 
 [usage]
-1. sudo apt install gcc g++ python3 python3-pip git
-2. python3 -m pip install --upgrade pip
-3. git clone https://github.com/chihyu1206/DSAI_HW2-AutoTrading
-4. cd DSAI_HW2-AutoTrading
-5. chmod u+x install.sh
+1. sudo apt install gcc g++ python3 python3-pip git (if necessary)
+2. python3 -m pip install --upgrade pip (Update pip)
+3. git clone https://github.com/chihyu1206/DSAI_HW2-AutoTrading.git (clone the repo)
+4. cd DSAI_HW2-AutoTrading (change dir)
+5. chmod u+x install.sh (After that, we can execute the shell script file)
 6. python3 -m pip install -r requirements.txt (Python=3.6.9 Install the remaining module)
-7. sudo ./install.sh (Install the ta-lib and Xgboost which can't be installed directly by pip)
-8. python3 app.py --training training_file --testing testing_file output output_file
+7. sudo ./install.sh (Install the ta-lib and Xgboost which can't be installed directly by pip in Ubuntu)
+8. python3 app.py --training training_file --testing testing_file output output_file (Train an predict)
 
 ## Description
-我選擇助教所提供IBM之前約1500天的股價數據，使用XGBoost做分類，以預測未來20天的買賣點。
+使用助教所提供IBM之前約1500天的股價數據，搭配XGBoost做multi-class分類，以預測未來20天的買賣點。
 
 ### Data Analysis
 由於IBM是大型藍籌股 覺得股價波動較小 難以直接單純使用提供的開高低收價來制定策略 因此引入常見的Python量化交易套件Ta-Lib 來擴增訓練資料
 
 ### Feature Engineering
-因為作業說明有說會引入走勢相近的不同股票data來訓練，而且Xgboost不像一般單純的決策樹只關心數據分布與機率，所以還是要做Normalization
+因為作業說明有說之後會引入走勢相近的不同股票data來訓練，股價分布可能不同，而且Xgboost不像一般單純的決策樹只關心數據分布與機率，所以還是要做Normalization
 ```
 # Do MinMax normalization
 maxValue = train_df.to_numpy().max()
@@ -42,7 +42,7 @@ train_data = train_data.reset_index(drop=True)
 ```
 ### Trading Strategy
 這裡我就直接以技術指標來當作交易的依據
-總共有6個指標判斷 若是多頭訊號>4 看多(2)，<2則看空(0)，其餘則持平(1)
+總共有6個指標判斷 若是多頭訊號>4 看多(2)，<2則看空(0)，其餘(=2, 3, 4)則持平(1)
 ```
 y = list()
 for i in range(len(train_data)):
