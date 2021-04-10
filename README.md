@@ -74,7 +74,7 @@ gsearch.fit(X_train, y_train,  eval_set=[(X_val, y_val)], eval_metric="auc", ver
 best_parameters = gsearch.best_estimator_.get_params()
 ```
 得到結果如下 
-![Imgur](https://imgur.com/K9kuddT)
+[Imgur](https://imgur.com/K9kuddT)
 將其代入得到model
 
 ```
