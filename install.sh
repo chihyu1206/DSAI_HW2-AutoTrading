@@ -10,4 +10,8 @@ git clone --recursive http://github.com/dmlc/xgboost
 cd xgboost
 make -j4
 cd python-package
-python3 setup.py install                   
+python3 setup.py install
+apt remove --purge cmake
+hash -r
+snap install cmake --classic
+python3 -m pip install xgboost                   
